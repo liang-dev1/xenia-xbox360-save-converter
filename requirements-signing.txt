@@ -1,0 +1,4 @@
+# Local validation resolution, 2026-10-08. No binary dependency is vendored.
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.0

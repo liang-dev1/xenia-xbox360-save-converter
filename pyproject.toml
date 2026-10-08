@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xenia-xbox360-save-converter"
+version = "0.1.0"
+description = "Inspect and convert Xenia and Xbox 360 STFS Saved Games"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{name = "Xenia and Xbox 360 Save Converter contributors"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Games/Entertainment",
+]
+dependencies = []
+
+[project.optional-dependencies]
+signing = ["cryptography>=43"]
+
+[project.scripts]
+xsave = "xsave.cli:main"
+
+[tool.setuptools]
+packages = ["xsave", "xsave.adapters"]
+include-package-data = false

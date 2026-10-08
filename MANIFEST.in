@@ -1,0 +1,11 @@
+include README.md LICENSE pyproject.toml .gitignore MANIFEST.in SECURITY.md CHANGELOG.md requirements-signing.txt
+recursive-include xsave *.py
+recursive-include tests *.py
+recursive-include tools *.py
+recursive-include docs *.md *.json
+recursive-include .github *.yml
+prune .local
+prune .research
+prune build
+prune dist
+global-exclude __pycache__ *.py[cod] *.bin *.dat *.header *.key *.pem *.kv *.zip *.exe *.dll *.iso *.xex

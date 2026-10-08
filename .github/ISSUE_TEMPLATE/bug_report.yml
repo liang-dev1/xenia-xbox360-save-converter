@@ -1,0 +1,18 @@
+name: Bug report
+description: Report with redacted diagnostics and synthetic data only
+body:
+  - type: markdown
+    attributes:
+      value: Never attach KeyVaults, CPU keys, private keys, real game saves, donor packages or copyrighted artwork. Redact account IDs and personal paths.
+  - type: textarea
+    attributes:
+      label: Environment and command
+      description: Tool/Python version, operating system, emulator version, and command with personal paths and IDs removed.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected and actual result
+      description: Include the exact error and a minimal synthetic reproduction if possible.
+    validations:
+      required: true
