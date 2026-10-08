@@ -14,6 +14,7 @@ Dependency versions/licenses are in [DEPENDENCIES.json](DEPENDENCIES.json).
 | Xenia coverage | Legacy/full headers, license preservation, sidecar/container distinction, layout/ZIP discovery, orphan headers and hostile paths |
 | Installed distribution | Offline wheel install; isolated `-I -S` installed CLI completed a bidirectional byte-preserving conversion |
 | Packaging | Wheel/sdist/source ZIP inventories checked; local Git stage includes only 40 allowlisted source files |
+| GitHub CI | Windows/Linux Python 3.11/3.12 stdlib matrix and Linux signing job all passed; [initial run](https://github.com/liang-dev1/xenia-xbox360-save-converter/actions/runs/37787085052) at commit `9cdde56` |
 
 ## Real NGII samples
 
@@ -62,5 +63,5 @@ No Xenia executable loaded these exports; pinned-source conformance and our
 rediscovery establish structure only. No retail Xbox 360 load/save cycle or
 certificate issuer trust check occurred. Region/Title Update, other NGII versions,
 replay binding and arbitrary games' encryption/checksum/binding remain unknown.
-CI Linux/Python 3.11 jobs are configured but have not run remotely. The dependency
-inventory is not a full binary SBOM of optional third-party wheel internals.
+Remote CI uses synthetic fixtures; private NGII samples remain local. The
+dependency inventory is not a full binary SBOM of optional third-party wheel internals.

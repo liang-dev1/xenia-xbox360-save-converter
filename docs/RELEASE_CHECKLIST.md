@@ -20,13 +20,16 @@ See [VALIDATION.md](VALIDATION.md) for actual test scope.
 
 ## Before public release
 
-- [ ] Run GitHub CI from a clean checkout; Linux/Python 3.11 remain locally untested.
+- [x] Run GitHub CI from a clean checkout; all five Windows/Linux/signing jobs passed.
 - [x] Enable private vulnerability reporting; identify the repository maintainer in SECURITY.md.
 - [ ] Final maintainer secret/copyright/license review of source, history and
   archives. Allowlisting is not a complete semantic secret scan.
 - [ ] If dependencies are later bundled as binaries, generate their complete
   OpenSSL/Rust/transitive binary SBOM. Current artifacts do not bundle them.
-- [ ] Create repository/tag/release and publish final artifact hashes after review.
+- [x] Create the [public repository](https://github.com/liang-dev1/xenia-xbox360-save-converter).
+
+Tags, release assets and their SHA-256 hashes are recorded on
+[GitHub Releases](https://github.com/liang-dev1/xenia-xbox360-save-converter/releases).
 
 ## Before runtime or retail-compatibility claims
 
