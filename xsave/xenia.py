@@ -196,6 +196,7 @@ class XeniaSave:
     header: XeniaHeader | None = None
     warnings: list[str] = field(default_factory=list)
     input_paths: tuple[Path, ...] = ()
+    container_validation: dict | None = None
 
 
 def _zip_tree(path: Path):
@@ -225,6 +226,9 @@ def _zip_tree(path: Path):
                         directories.add(parent.as_posix())
     except (zipfile.BadZipFile, RuntimeError) as exc:
         raise FormatError('Invalid/unsupported ZIP input') from exc
+    folded_directories = {name.casefold() for name in directories}
+    if len(folded_directories) != len(directories) or folded_directories & {name.casefold() for name in files}:
+        raise FormatError('ZIP file/directory or case-insensitive parent collision')
     return files, directories
 
 
@@ -238,19 +242,29 @@ def _normalise_directories(directories: set[str], files: dict[str, bytes]) -> se
     return result
 
 
-def _from_container(data, name, *, xuid=None, inputs=()):
+def _source_xuid(observed, supplied):
+    if observed is not None and supplied is not None and observed != supplied:
+        raise FormatError('Explicit source XUID conflicts with observed identity')
+    return observed if observed is not None else supplied
+
+
+def _from_container(data, name, *, xuid=None, path_xuid=None, inputs=()):
     from .stfs import StfsPackage
     package = StfsPackage(data)
     if package.metadata.content_type != 1:
         raise FormatError('Only Saved Game content type 00000001 is supported')
     header = XeniaHeader.from_container(data, name)
     header.kind = 'container_header'
+    profile_xuid = int.from_bytes(package.metadata.profile_id, 'big')
+    observed_xuid = profile_xuid if path_xuid is None else path_xuid
     result = XeniaSave(package.metadata.title_id, 1,
-                       xuid if xuid is not None else int.from_bytes(package.metadata.profile_id, 'big'),
+                       _source_xuid(observed_xuid, xuid),
                        safe_component(name, 42), package.metadata.display_name,
                        package.files, _normalise_directories(package.directories, package.files), package.thumbnail,
-                       header=header, input_paths=inputs)
+                       header=header, input_paths=inputs, container_validation=package.validate())
     result.warnings.append('container_input_requires_integrity_validation')
+    if path_xuid is not None and path_xuid != profile_xuid:
+        result.warnings.append('container_profile_id_differs_from_path_xuid')
     return result
 
 
@@ -296,7 +310,7 @@ def discover(path: Path, *, title_id: int | None = None,
                 raise FormatError('XCONTENT filename conflicts with package path')
             if header and header.title_id not in (None, observed_title):
                 raise FormatError('XCONTENT Title ID conflicts with package path')
-            selected_xuid = xuid if xuid is not None else observed_xuid
+            selected_xuid = observed_xuid
             warnings = []
             if header and header.profile_id is not None:
                 profile_xuid = int.from_bytes(header.profile_id, 'big')
@@ -305,6 +319,7 @@ def discover(path: Path, *, title_id: int | None = None,
                     warnings.append('full_header_profile_id_used_as_xuid_evidence')
                 elif profile_xuid != selected_xuid:
                     warnings.append('full_header_profile_id_differs_from_path_xuid')
+            selected_xuid = _source_xuid(selected_xuid, xuid)
             game, dirs = read_tree(path)
             loose_thumbnail = game.pop('__thumbnail.png', None)
             if loose_thumbnail is not None and not loose_thumbnail.startswith(PNG_MAGIC):
@@ -333,7 +348,10 @@ def discover(path: Path, *, title_id: int | None = None,
         for i, part in enumerate(parts):
             if part.upper() == '00000001' and i and re.fullmatch(r'[0-9a-fA-F]{8}', parts[i - 1]) and i + 1 < len(parts):
                 candidates.add(('/'.join(parts[:i + 2]), i))
-    for prefix, i in sorted(candidates):
+    package_prefixes = set()
+    for prefix, i in sorted(candidates, key=lambda item: (item[0].count('/'), item[0])):
+        if any(parent.as_posix() in package_prefixes for parent in Path(prefix).parents):
+            continue
         parts = prefix.split('/')
         package_name = parts[-1]
         if selected is not None and package_name != selected:
@@ -346,12 +364,13 @@ def discover(path: Path, *, title_id: int | None = None,
         observed_xuid = None
         if i >= 2 and re.fullmatch(r'[0-9a-fA-F]{16}', parts[i - 2]):
             observed_xuid = int(parts[i - 2], 16)
-        selected_xuid = xuid if xuid is not None else observed_xuid
+        selected_xuid = observed_xuid
         if prefix in files and files[prefix][:4] in (b'CON ', b'LIVE', b'PIRS'):
-            save = _from_container(files[prefix], package_name, xuid=selected_xuid, inputs=inputs)
+            save = _from_container(files[prefix], package_name, xuid=xuid, path_xuid=observed_xuid, inputs=inputs)
             if save.title_id != observed_title:
                 raise FormatError('STFS Title ID conflicts with content path')
             found.append(save)
+            package_prefixes.add(prefix)
             continue
         head_path = '/'.join(parts[:i]) + '/Headers/00000001/' + package_name + '.header'
         header = (XeniaHeader.parse(files[head_path], title_hint=observed_title,
@@ -378,6 +397,7 @@ def discover(path: Path, *, title_id: int | None = None,
                     warnings.append('full_header_profile_id_differs_from_path_xuid')
         else:
             warnings.append('xcontent_header_missing')
+        selected_xuid = _source_xuid(selected_xuid, xuid)
         game = {name[len(prefix) + 1:]: value for name, value in files.items() if name.startswith(prefix + '/')}
         dirs = {name[len(prefix) + 1:] for name in directories if name.startswith(prefix + '/')}
         thumb = game.pop('__thumbnail.png', None)
@@ -393,6 +413,7 @@ def discover(path: Path, *, title_id: int | None = None,
                                header.display_name if header else package_name, game,
                                _normalise_directories(dirs, game),
                                thumb, header, warnings, inputs))
+        package_prefixes.add(prefix)
     if not found and path.is_dir() and title_id is not None:
         files, dirs = read_tree(path)
         if not files:

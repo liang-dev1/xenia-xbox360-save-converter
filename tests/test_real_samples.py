@@ -31,6 +31,7 @@ class RealSampleTests(unittest.TestCase):
         before = {p: sha256(p.read_bytes()).hexdigest() for p in real_files}
         donors = {}
         native_checks = []
+        native_system_preserved = 0
         for path in (source / '360original').rglob('*'):
             if not path.is_file() or path.read_bytes()[:4] != b'CON ':
                 continue
@@ -41,7 +42,18 @@ class RealSampleTests(unittest.TestCase):
             self.assertEqual(validation['signature'], 'valid')
             native_checks.append(validation)
             donors[path.name] = path
+            if 'ng2sysd.dat' in package.files:
+                exported = run / 'native-system-export' / path.name
+                native_report = to_xenia(path, exported)
+                self.assertEqual(discover(exported)[0].files, package.files)
+                self.assertFalse(native_report['file_provenance']['ng2sysd.dat']['changed'])
+                preserved = run / 'native-system-preserved' / path.name
+                preserved_report = to_xbox(exported, path, preserved)
+                self.assertEqual(preserved_report['status'], 'preserved_donor_signature')
+                self.assertEqual(preserved.read_bytes(), path.read_bytes())
+                native_system_preserved += 1
         self.assertGreaterEqual(len(donors), 23)
+        self.assertGreater(native_system_preserved, 0)
         saves = discover(source / 'simu')
         self.assertEqual(len(saves), 7)  # Actual payload packages, not 25 sidecars.
         reports = []
@@ -81,6 +93,7 @@ class RealSampleTests(unittest.TestCase):
         after = {p: sha256(p.read_bytes()).hexdigest() for p in real_files}
         self.assertEqual(before, after)
         evidence = {'original_files_unchanged': len(before), 'native_packages_validated': len(native_checks),
+                    'native_system_signature_round_trips': native_system_preserved,
                     'native_signature_results': [r['signature'] for r in native_checks],
                     'packages_round_tripped': len(reports), 'reports': reports,
                     'retail_console_test': 'not_tested', 'xenia_runtime_test': 'not_tested'}

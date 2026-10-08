@@ -43,7 +43,7 @@ def transform(files: dict[str, bytes], source_identity: int | None,
             embedded = int.from_bytes(original[:8], 'big')
             if source_identity is not None and embedded != source_identity:
                 warnings.append('source_system_xuid_differs_from_container_identity')
-            if embedded != target_identity:
+            if (changed or source_identity is None) and embedded != target_identity:
                 data = bytearray(original)
                 data[:8] = target_identity.to_bytes(8, 'big')
                 data[offset:offset + 4] = checksum(data, offset).to_bytes(4, 'big')

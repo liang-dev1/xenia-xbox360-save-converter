@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,7 +62,8 @@ def audit() -> list[Path]:
 
 
 def build_zip(files: list[Path]) -> Path:
-    output = ROOT / '.local' / 'xsave-source-0.1.0.zip'
+    version = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
+    output = ROOT / '.local' / f'xsave-source-{version}.zip'
     output.parent.mkdir(exist_ok=True)
     if output.exists():
         raise ValueError(f'refuse to overwrite {output}')

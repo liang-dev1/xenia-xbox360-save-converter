@@ -5,9 +5,9 @@ Dependency versions/licenses are in [DEPENDENCIES.json](DEPENDENCIES.json).
 
 | Check | Actual result |
 | --- | --- |
-| Default unittest discovery | 37 discovered: 36 passed, private-fixture test skipped |
-| Discovery with `XSAVE_SAMPLE_ROOT` | All 37 passed |
-| `python -S` stdlib-only discovery | 34 passed; two optional signing tests and private-fixture test skipped |
+| Default unittest discovery | 45 discovered: 44 passed, private-fixture test skipped |
+| Discovery with `XSAVE_SAMPLE_ROOT` | All 45 passed |
+| `python -S` stdlib-only discovery | 42 passed; two optional signing tests and private-fixture test skipped |
 | Container coverage | L0/L1/L2, single/double tables, active copies, fragmentation, nesting, empty files/directories, multiblock file table, v2 metadata, corruption |
 | Signing coverage | Synthetic keyvault/RSA material, content signature and mutation rejection, signed conversion, unchanged donor preservation |
 | Conversion safety | Verified backups, overlap/overwrite refusal, changed-input detection, title mismatch, key outside backed-up input tree |
@@ -27,12 +27,25 @@ Dependency versions/licenses are in [DEPENDENCIES.json](DEPENDENCIES.json).
 - Six story payloads remain byte-identical. The system adapter changes only the
   known XUID/checksum; reversing those changes restores the original bytes.
 - Converted payloads differ from donor payloads, proving Xenia provenance.
+- A native system CON with distinct outer/embedded identities exports without
+  payload changes and returns to its identical, originally signed donor bytes.
 - A slot without a same-name donor uses a same-title donor selected by actual
   payload size/header. The generic writer rebuilds the source filename.
 
 The system donor's outer Profile ID differs from its embedded XUID and directory
 identity. Default conversion uses the outer Profile ID; choose the receiving
 profile explicitly when necessary. These identities are not assumed equal.
+If the observed outer identity is unchanged, the adapter preserves the embedded
+XUID and reports its mismatch. Default native extraction does not rebind it.
+
+## Post-publication review
+
+Independent code and architecture reviews of v0.1.0 found two high-priority
+identity defects and three input/output validation defects. v0.1.1 adds regression
+coverage for default NGII byte preservation, originally signed donor restoration,
+conflicting source-XUID hints, nested payload content paths, ZIP implicit directory
+collisions and output/backup overlaps. Source CON signature status is now reported
+separately during extraction. Passing tests do not replace hardware validation.
 
 Real outputs are **unsigned drafts, not console-ready**. Synthetic signing tests
 do not provide authorized retail credentials. Private runs, backups and reports

@@ -35,6 +35,7 @@ class ConverterTests(unittest.TestCase):
             self.assertEqual(StfsPackage((root / 'converted').read_bytes()).files, original)
             self.assertTrue(Path(report['backup']).is_file())
             report = to_xenia(root / 'converted', root / 'export')
+            self.assertEqual(report['source_container']['signature'], 'missing')
             self.assertEqual(discover(root / 'export')[0].files, original)
             self.assertEqual(report['file_provenance']['nested/data']['changed'], False)
 
@@ -48,6 +49,55 @@ class ConverterTests(unittest.TestCase):
             with self.assertRaises(FormatError):
                 to_xbox(source, donor, root / 'output')
             self.assertFalse((root / 'output').exists())
+
+    def test_ngii_default_export_preserves_mismatched_embedded_xuid(self):
+        from tests.test_adapters import payload
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            files = {'ng2sysd.dat': payload(2048, 0x768, 11)}
+            donor = root / 'donor'
+            donor.write_bytes(build(files, synthetic_donor(), profile_id=(10).to_bytes(8, 'big')))
+            report = to_xenia(donor, root / 'export')
+            self.assertEqual(discover(root / 'export')[0].files, files)
+            self.assertFalse(report['file_provenance']['ng2sysd.dat']['changed'])
+            rebound = to_xenia(donor, root / 'rebound', xuid=12)
+            self.assertTrue(rebound['file_provenance']['ng2sysd.dat']['changed'])
+            self.assertEqual(discover(root / 'rebound')[0].files['ng2sysd.dat'][:8], (12).to_bytes(8, 'big'))
+
+    def test_source_identity_override_cannot_bypass_rebinding_gate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            donor = root / 'donor'
+            donor.write_bytes(build({'old': b'old'}, template(), profile_id=(11).to_bytes(8, 'big')))
+            source = root / 'source'
+            write_save(XeniaSave(0x12345678, 1, 10, 'save', 'save', {'a': b'new'}, set()), source)
+            with self.assertRaises(FormatError):
+                to_xbox(source, donor, root / 'xbox', unsigned=True, source_xuid=11)
+            with self.assertRaises(FormatError):
+                to_xenia(donor, root / 'xenia', source_xuid=12, xuid=12)
+            self.assertFalse((root / 'xbox').exists())
+            self.assertFalse((root / 'xenia').exists())
+            self.assertFalse((root / '.xsave-backups').exists())
+
+    def test_backup_output_overlap_rejected_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            donor = root / 'donor'
+            donor.write_bytes(build({'a': b'old'}, template()))
+            source = root / 'source'
+            write_save(XeniaSave(0x12345678, 1, 0, 'save', 'save', {'a': b'new'}, set()), source)
+            for direction in ('xbox', 'xenia'):
+                for relation in ('equal', 'inside', 'outside'):
+                    with self.subTest(direction=direction, relation=relation):
+                        output = root / f'{direction}-{relation}' / 'output'
+                        backup = output if relation == 'equal' else output / 'backup' if relation == 'inside' else output.parent
+                        with self.assertRaisesRegex(FormatError, 'overlap'):
+                            if direction == 'xbox':
+                                to_xbox(source, donor, output, unsigned=True, backup_dir=backup)
+                            else:
+                                to_xenia(donor, output, backup_dir=backup)
+                        self.assertFalse(backup.exists())
+                        self.assertFalse(output.exists())
 
     def test_overlap_and_existing_output_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -109,8 +159,17 @@ class ConverterTests(unittest.TestCase):
             report = to_xbox(source, donor, root / 'signed', signer=signer)
             self.assertEqual(report['container']['signature'], 'valid')
             self.assertEqual(report['certificate_issuer_trust'], 'not_verified')
-            to_xenia(root / 'signed', root / 'export')
+            export_report = to_xenia(root / 'signed', root / 'export')
+            self.assertEqual(export_report['source_container']['signature'], 'valid')
             report = to_xbox(root / 'export', root / 'signed', root / 'preserved')
             self.assertEqual(report['status'], 'preserved_donor_signature')
             self.assertEqual((root / 'preserved').read_bytes(), (root / 'signed').read_bytes())
+            from tests.test_adapters import payload
+            native = root / 'ngii'
+            native.write_bytes(build({'ng2sysd.dat': payload(2048, 0x768, 11)},
+                                    synthetic_donor(), profile_id=(10).to_bytes(8, 'big'), signer=signer))
+            to_xenia(native, root / 'ngii-export')
+            report = to_xbox(root / 'ngii-export', native, root / 'ngii-preserved')
+            self.assertEqual(report['status'], 'preserved_donor_signature')
+            self.assertEqual((root / 'ngii-preserved').read_bytes(), native.read_bytes())
 

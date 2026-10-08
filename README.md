@@ -3,6 +3,8 @@
 A local, backup-first converter for Xbox 360 **Saved Game** file trees. Python
 3.11+, GPL-3.0-or-later. This first release uses a generic STFS/XContent core and a
 small game-adapter registry. Ninja Gaiden II is a test case, not a container rule.
+Use v0.1.1 or later: the post-publication review found identity and input-validation
+defects in v0.1.0, now covered by regression tests.
 
 **Changed saves need a new CON signature. A donor is metadata, not signing
 authority.** Without explicitly supplied signing material, changed exports are
@@ -60,7 +62,8 @@ writer rebuilds directories, allocation chains and the complete hash tree. It
 preserves execution/version metadata from the donor; matching Title ID alone
 does not establish region or Title Update compatibility. The donor's Profile ID
 is the default receiving identity; `--profile-id` overrides it. `--source-xuid`
-supplies otherwise missing source identity, and `--title-id` supplies missing
+supplies otherwise missing source identity and rejects conflicts with observed
+identity; `--title-id` supplies missing
 extracted-folder metadata. Multi-package inputs require `--package NAME`.
 
 Signing accepts a caller-supplied **decrypted** 0x3FF0/0x4000 KeyVault and verifies
@@ -93,7 +96,9 @@ that every private game mechanism has been discovered.
 NGII (`544307D5`) currently recognizes the supplied 31,744-byte story structure
 and 2,048-byte system structure. Its adapter checks the observed big-endian word
 sum and updates the system XUID plus checksum on rebinding. Replay and other
-formats remain opaque. See [compatibility](docs/COMPATIBILITY.md).
+formats remain opaque. An unchanged outer account preserves an embedded XUID
+mismatch and warns about it; container metadata alone does not authorize repair.
+See [compatibility](docs/COMPATIBILITY.md).
 
 ## Backups and verification
 

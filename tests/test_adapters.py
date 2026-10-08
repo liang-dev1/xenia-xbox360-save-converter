@@ -54,6 +54,13 @@ class AdaptersTest(unittest.TestCase):
         with self.assertRaises(FormatError):
             adapt(0x544307D5, {'ng2stryd00.dat': bytes(data)}, None, None)
 
+    def test_ngii_preserves_embedded_xuid_when_outer_identity_unchanged(self):
+        raw = payload(2048, 0x768, 11)
+        result = adapt(0x544307D5, {'ng2sysd.dat': raw}, 10, 10)
+        self.assertEqual(result.files['ng2sysd.dat'], raw)
+        self.assertTrue(result.checked)
+        self.assertIn('source_system_xuid_differs_from_container_identity', result.warnings)
+
     def test_ngii_replay_is_not_claimed_as_checked(self):
         result = adapt(0x544307D5, {'replay': b'unknown'}, 10, 10)
         self.assertFalse(result.checked)

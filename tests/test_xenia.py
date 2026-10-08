@@ -122,6 +122,7 @@ class XeniaTest(unittest.TestCase):
                 z.writestr('../attack', b'bad')
             with self.assertRaises(FormatError):
                 discover(archive)
+
             with zipfile.ZipFile(archive, 'w') as z:
                 info = zipfile.ZipInfo('link')
                 info.create_system = 3
@@ -129,3 +130,69 @@ class XeniaTest(unittest.TestCase):
                 z.writestr(info, 'target')
             with self.assertRaises(FormatError):
                 discover(archive)
+
+    def test_source_xuid_conflicts_rejected_but_missing_identity_supplied(self):
+        from tests.helpers import donor
+        from xsave.stfs import build
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            content = root / 'content'
+            package = write_save(XeniaSave(0x12345678, 1, 10, 'save', 'save', {'a': b'data'}, set()), content)
+            container = root / 'container'
+            container.write_bytes(build({'a': b'data'}, donor(), profile_id=(10).to_bytes(8, 'big')))
+            archive = root / 'save.zip'
+            with zipfile.ZipFile(archive, 'w') as z:
+                for path in content.rglob('*'):
+                    if path.is_file():
+                        z.write(path, path.relative_to(content).as_posix())
+            for selected in (content, package, package.parent.parent, archive, container):
+                with self.subTest(selected=selected):
+                    with self.assertRaisesRegex(FormatError, 'XUID.*conflict'):
+                        discover(selected, xuid=11)
+                    self.assertEqual(discover(selected, xuid=10)[0].xuid, 10)
+            bare = root / 'bare'
+            bare.mkdir()
+            (bare / 'a').write_bytes(b'data')
+            self.assertEqual(discover(bare, title_id=0x12345678, xuid=11)[0].xuid, 11)
+
+    def test_container_in_profile_path_keeps_distinct_identity_evidence(self):
+        from tests.helpers import donor
+        from xsave.stfs import build
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            container = root / '000000000000000A/544307D5/00000001/save'
+            container.parent.mkdir(parents=True)
+            container.write_bytes(build({'a': b'data'}, donor(), profile_id=(11).to_bytes(8, 'big')))
+            self.assertEqual(discover(root)[0].xuid, 10)
+            self.assertEqual(discover(root, xuid=10)[0].xuid, 10)
+            with self.assertRaises(FormatError):
+                discover(root, xuid=11)
+
+    def test_nested_payload_content_paths_are_not_additional_packages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            content = root / 'content'
+            save = XeniaSave(0x12345678, 1, 10, 'save', 'save',
+                             {'DEADBEEF/00000001/fake/slot': b'progress'}, set())
+            write_save(save, content)
+            archive = root / 'save.zip'
+            with zipfile.ZipFile(archive, 'w') as z:
+                for path in content.rglob('*'):
+                    if path.is_file():
+                        z.write(path, path.relative_to(content).as_posix())
+            for selected in (content, archive):
+                with self.subTest(selected=selected):
+                    found = discover(selected, title_id=0x12345678)
+                    self.assertEqual(len(found), 1)
+                    self.assertEqual(found[0].files, save.files)
+
+    def test_zip_implicit_directory_conflicts_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp) / 'bad.zip'
+            for names in (('A', 'A/child'), ('A/one', 'a/two')):
+                with self.subTest(names=names):
+                    with zipfile.ZipFile(archive, 'w') as z:
+                        for name in names:
+                            z.writestr('12345678/00000001/save/' + name, b'payload')
+                    with self.assertRaises(FormatError):
+                        discover(archive)

@@ -122,7 +122,8 @@ def to_xbox(source, template, output, *, package=None, title_id=None,
         raise FormatError('Device ID must be exactly twenty bytes')
     result = adapt(save.title_id, save.files, save.xuid, int.from_bytes(target, 'big'), allow_unsafe=allow_unsafe)
     inputs = (*save.input_paths, template)
-    output = _destination(output, inputs)
+    snapshot_directory = backup_dir or Path(output).absolute().parent / '.xsave-backups'
+    output = _destination(output, (*inputs, snapshot_directory))
     preserved = (result.files == donor.files and save.directories == donor.directories
                  and target == donor.metadata.profile_id
                  and (device_id is None or device_id == donor.metadata.device_id)
@@ -133,7 +134,7 @@ def to_xbox(source, template, output, *, package=None, title_id=None,
         raise FormatError('Donor signatures cannot authorize changed data; supply --keyvault or explicitly --unsigned')
     if signer is not None and unsigned:
         raise FormatError('Choose key-backed signing or unsigned draft, not both')
-    snapshot = backup(inputs, backup_dir or output.parent / '.xsave-backups')
+    snapshot = backup(inputs, snapshot_directory)
     fresh = _select(source, package, title_id, source_xuid)
     if fresh != save or _read(template) != donor_data:
         raise FormatError('Input changed during backup; conversion aborted')
@@ -181,8 +182,9 @@ def to_xenia(source, output, *, xuid=None, layout='canary', package=None,
     save = _select(source, package, title_id, source_xuid)
     identity = save.xuid if xuid is None else xuid
     result = adapt(save.title_id, save.files, save.xuid, identity, allow_unsafe=allow_unsafe)
-    output = _destination(output, save.input_paths)
-    snapshot = backup(save.input_paths, backup_dir or output.parent / '.xsave-backups')
+    snapshot_directory = backup_dir or Path(output).absolute().parent / '.xsave-backups'
+    output = _destination(output, (*save.input_paths, snapshot_directory))
+    snapshot = backup(save.input_paths, snapshot_directory)
     if _select(source, package, title_id, source_xuid) != save:
         raise FormatError('Input changed during backup; conversion aborted')
     exported = replace(save, files=result.files, xuid=identity)
@@ -204,5 +206,6 @@ def to_xenia(source, output, *, xuid=None, layout='canary', package=None,
     report = _report(save, result, snapshot, output)
     report.update(status='xenia_export_needs_runtime_test', layout=layout,
                   xuid=f'{identity:016X}' if identity is not None else None,
+                  source_container=save.container_validation,
                   container={'file_tree': 'valid', 'metadata_rediscovery': 'valid'})
     return report

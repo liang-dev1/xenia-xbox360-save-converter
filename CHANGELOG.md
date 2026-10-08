@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 — experimental
+
+- Preserve NGII embedded XUID/checksum when the observed outer account is unchanged,
+  including native CON → Xenia → unchanged signed donor round trips.
+- Reject conflicting `--source-xuid` hints instead of bypassing identity safety.
+- Keep content-shaped directories inside game payloads from becoming new packages.
+- Reject ZIP implicit file/directory and case-insensitive parent collisions.
+- Reject output/backup overlaps before creating any backup or output.
+- Report source CON integrity/signature separately on Xbox → Xenia conversion.
+- Add eight regression tests; 45 opt-in local tests pass.
+
 ## 0.1.0 — experimental
 
 - Generic STFS Saved Game parsing, donor-based rebuilding and L0/L1/L2 integrity
