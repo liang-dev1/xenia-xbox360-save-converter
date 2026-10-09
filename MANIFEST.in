@@ -1,4 +1,4 @@
-include README.md LICENSE pyproject.toml .gitignore MANIFEST.in SECURITY.md CHANGELOG.md requirements-signing.txt
+include README.md LICENSE pyproject.toml .gitignore MANIFEST.in SECURITY.md CHANGELOG.md requirements-signing.txt requirements-build.txt requirements-windows.txt
 recursive-include xsave *.py
 recursive-include tests *.py
 recursive-include tools *.py

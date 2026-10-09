@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — experimental Windows GUI
+
+- Native Tkinter interface for inspection, verification and both conversions,
+  sharing CLI backup, path, identity and signing checks.
+- Responsive background work, explicit signing modes, safe close guard and
+  Chinese summary/full JSON views; no saved file/key selections.
+- Portable Windows x64 EXE ZIP with optional signing dependencies, dependency
+  notices and SHA-256 bundle inventory; no Python installation needed.
+- Pinned build environment, extracted-EXE smoke checks and source GUI regression
+  tests. Authenticode signing and actual game/runtime loading remain unverified.
+
 ## 0.1.1 — experimental
 
 - Preserve NGII embedded XUID/checksum when the observed outer account is unchanged,

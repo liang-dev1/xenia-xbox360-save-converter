@@ -39,9 +39,10 @@ promise that an upstream version remains unchanged.
 
 ## What this project currently incorporates
 
-The project vendors no third-party source, binary, fixture, or signing
-material. References above therefore are not runtime dependencies by
-themselves.
+The source repository vendors no third-party implementation, binary, fixture,
+or signing material. References above are not runtime dependencies themselves.
+The separately built Windows portable ZIP bundles audited runtime dependencies;
+its own notices and file manifest are described below.
 
 `xsave/signing.py` lazily imports `cryptography` only for CON public-signature
 verification or caller-supplied private-key operations. The planned distribution
@@ -59,6 +60,36 @@ Their inspected installed metadata declares `MIT-0` for `cffi 2.1.1` and
 `requirements-signing.txt`; `DEPENDENCIES.json` records the local snapshot.
 A complete binary SBOM for optional wheel internals and CI platform results
 remain release review tasks; the local inventory does not claim them.
+
+## Windows 0.2.0 binary inventory
+
+The Windows GUI uses official CPython 3.14.4 / Tcl-Tk 8.6.15, PyInstaller 6.22.3
+and hooks-contrib 2026.8; build dependency resolutions are fixed in
+`requirements-build.txt`. The standard upstream cryptography hook collects its
+Rust and CFFI backends without collecting the CFFI development API, pycparser or
+setuptools. The normal source installation remains dependency-free.
+
+The ZIP includes the project GPL license, `BUILD.json`, SHA-256 `FILES.json`, and
+75 license/notice texts under `THIRD_PARTY/`. The collector validates exact
+upstream source archives, all 32 registry-crate checksums in cryptography's
+Cargo.lock, and pinned notice hashes before writing a manifest. It includes
+CPython's complete license (with Microsoft redistribution conditions, libffi,
+zlib and stdlib notices), Tcl/Tk terms, PyInstaller bootloader/runtime-hook
+notices and bootloader zlib, crypto/CFFI/pycparser notices, and both OpenSSL
+versions: stdlib 3.0.19 and cryptography's static 4.0.3. Pycparser notices are a
+conservative build-environment inclusion, rather than a runtime dependency.
+
+Crate declarations include permissive MIT/Apache/BSD, LLVM exception and Unicode
+terms; where upstream provides an Apache/GPL choice, Apache terms can be used.
+All supplied texts are retained rather than replacing attribution with SPDX
+labels. `THIRD_PARTY/manifest.json` records their sources and checksums.
+
+This is a **conservative Cargo.lock superset**, not a precise compiled-crate
+SBOM or a legal certificate. The project cannot attest the precompiled upstream
+wheel's exact build graph. Exact compiler/standard-library attestation and final
+maintainer legal review remain open; this limitation is published rather than
+claiming a complete SBOM. No reference emulator, Xbox tool, console key or save
+data is bundled.
 
 The dependency statements in this section are provenance for package
 distribution, not permission to copy their source into this repository.

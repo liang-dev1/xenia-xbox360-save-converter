@@ -30,3 +30,23 @@ jobs:
       - run: python -m unittest discover -s tests -t .
       - run: python -m compileall -q xsave tests tools
       - run: python tools/release_audit.py --zip
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.4'
+          architecture: x64
+      - run: python -m venv .local/windows-venv
+      - run: .local/windows-venv/Scripts/python.exe -m pip install --require-hashes -r requirements-windows.txt
+      - run: .local/windows-venv/Scripts/python.exe -m unittest tests.test_gui -v
+      - run: .local/windows-venv/Scripts/python.exe tools/build_windows.py
+      - run: .local/windows-venv/Scripts/python.exe tools/windows_smoke.py .local/windows/0.2.0/xsave-windows-x64-0.2.0.zip --receipt .local/windows/0.2.0/smoke.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: |
+            .local/windows/0.2.0/xsave-windows-x64-0.2.0.zip
+            .local/windows/0.2.0/smoke.json
+          if-no-files-found: error

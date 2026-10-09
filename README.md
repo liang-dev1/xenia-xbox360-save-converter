@@ -13,6 +13,29 @@ verification also does not prove certificate trust or that a game will load.
 
 ## Install and run
 
+### Windows graphical version
+
+Download `xsave-windows-x64-0.2.0.zip` from
+[Releases](https://github.com/liang-dev1/xenia-xbox360-save-converter/releases),
+extract the **whole ZIP**, then double-click **XSaveConverter.exe**. Keep
+`_internal` beside it. Python installation is not required. The EXE is unsigned
+by Authenticode, so Windows may show an unknown-publisher warning.
+
+1. Select a file or Xenia content folder and click **识别存档** (inspect).
+2. Choose **Xbox 360 → Xenia** or **Xenia → Xbox 360**, a new output path,
+   and a package if inspection found several saves.
+3. For Xbox output, select a same-game native CON template and explicitly choose
+   unchanged-signature preservation, unsigned draft, or your decrypted KeyVault.
+4. Click **开始** and read the summary and full JSON report. Account/layout hints
+   are in **高级选项**. Original files are backed up before conversion.
+
+The GUI shares every CLI safety check. It runs conversions in the background
+and refuses to close during writes. It does not remember file/key selections.
+Signing support is bundled, but suitable caller-owned signing material is still
+required. See [GUI behavior and build notes](docs/GUI.md).
+
+### Python / command line
+
 ```sh
 python -m pip install .
 # Optional content-RSA verification and caller-supplied KeyVault signing:
@@ -20,11 +43,14 @@ python -m pip install '.[signing]'
 python -m xsave --help
 python -m xsave inspect /path/to/content
 python -m xsave verify /path/to/console-save
+# Native GUI (requires a Python installation with Tk):
+python -m xsave.gui
 ```
 
 For tested optional versions, use `pip install -r requirements-signing.txt`.
 There is no SDK dependency, embedded console key, game data, cloud upload, or
-automatic download. You can also run `python -m xsave` from the source checkout.
+automatic application download. Build tools fetch audited dependency notices.
+You can also run `python -m xsave` from the source checkout.
 
 ## Xbox 360 → Xenia
 
@@ -75,7 +101,7 @@ LIVE/PIRS can be identified/extracted, but this project does not sign them.
 
 An unchanged donor may retain its existing content signature. Changing payload,
 Profile ID, metadata, or the hash root invalidates that signature. Rehashing
-cannot repair it. Key-only creation without a donor is outside v0.1 scope.
+cannot repair it. Key-only creation without a donor is outside the current scope.
 
 ## What is generic, and what is not
 
@@ -140,8 +166,9 @@ optional dependency is absent. No copyrighted payload is committed as a fixture.
 See [validation evidence](docs/VALIDATION.md), [architecture](docs/DESIGN.md),
 [pinned Xenia research](docs/research-xenia.md), [STFS research](docs/research-stfs.md),
 [license audit](docs/THIRD_PARTY.md), and [release checklist](docs/RELEASE_CHECKLIST.md).
-Release artifacts must pass the source allowlist audit; `.local/` and `.research/`
-must never be published. Releases are explicitly experimental: see the
+Source artifacts must pass the source allowlist audit. The Windows ZIP is built
+from a separate frozen bundle with notices and SHA-256 inventory; never publish
+`.local/` or `.research/` wholesale. Releases are explicitly experimental: see the
 [GitHub repository](https://github.com/liang-dev1/xenia-xbox360-save-converter)
 and [release downloads](https://github.com/liang-dev1/xenia-xbox360-save-converter/releases).
 

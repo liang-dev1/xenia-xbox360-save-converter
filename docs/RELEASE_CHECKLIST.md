@@ -24,8 +24,11 @@ See [VALIDATION.md](VALIDATION.md) for actual test scope.
 - [x] Enable private vulnerability reporting; identify the repository maintainer in SECURITY.md.
 - [ ] Final maintainer secret/copyright/license review of source, history and
   archives. Allowlisting is not a complete semantic secret scan.
-- [ ] If dependencies are later bundled as binaries, generate their complete
-  OpenSSL/Rust/transitive binary SBOM. Current artifacts do not bundle them.
+- [x] Windows 0.2.0 bundles dependency notices and SHA-256 inventories, including
+  both OpenSSL runtimes and every cryptography Cargo.lock registry crate.
+- [ ] Exact compiled-crate/standard-library binary SBOM attestation for the
+  upstream precompiled cryptography wheel. The shipped conservative inventory
+  is explicitly not labelled an exact or standards-complete binary SBOM.
 - [x] Create the [public repository](https://github.com/liang-dev1/xenia-xbox360-save-converter).
 
 Tags, release assets and their SHA-256 hashes are recorded on

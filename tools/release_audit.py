@@ -11,9 +11,9 @@ import tomllib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP = {'README.md', 'LICENSE', 'pyproject.toml', '.gitignore', 'MANIFEST.in', 'SECURITY.md', 'CHANGELOG.md', 'requirements-signing.txt'}
+TOP = {'README.md', 'LICENSE', 'pyproject.toml', '.gitignore', 'MANIFEST.in', 'SECURITY.md', 'CHANGELOG.md', 'requirements-signing.txt', 'requirements-build.txt', 'requirements-windows.txt'}
 DOCS = {'DESIGN.md', 'PLAN.md', 'THIRD_PARTY.md', 'RELEASE_CHECKLIST.md',
-        'research-stfs.md', 'research-xenia.md', 'COMPATIBILITY.md', 'VALIDATION.md', 'DEPENDENCIES.json'}
+        'research-stfs.md', 'research-xenia.md', 'COMPATIBILITY.md', 'VALIDATION.md', 'DEPENDENCIES.json', 'GUI.md'}
 CI = {'.github/workflows/tests.yml', '.github/ISSUE_TEMPLATE/bug_report.yml'}
 
 

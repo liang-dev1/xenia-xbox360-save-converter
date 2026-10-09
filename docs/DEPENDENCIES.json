@@ -4,13 +4,125 @@
   "python": "3.12.14",
   "runtime_required": [],
   "optional_signing_test_resolution": [
-    {"name": "cryptography", "version": "50.0.2", "license": "Apache-2.0 OR BSD-3-Clause", "source": "installed distribution metadata"},
-    {"name": "cffi", "version": "2.1.1", "license": "MIT-0", "source": "installed distribution metadata"},
-    {"name": "pycparser", "version": "3.0", "license": "BSD-3-Clause", "source": "installed distribution metadata"}
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "license": "Apache-2.0 OR BSD-3-Clause",
+      "source": "installed distribution metadata"
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "license": "MIT-0",
+      "source": "installed distribution metadata"
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "license": "BSD-3-Clause",
+      "source": "installed distribution metadata"
+    }
   ],
   "build_test_resolution": [
-    {"name": "setuptools", "version": "84.0.0", "license": "MIT", "source": "installed distribution metadata"}
+    {
+      "name": "setuptools",
+      "version": "84.0.0",
+      "license": "MIT",
+      "source": "installed distribution metadata"
+    }
   ],
   "bundled_third_party_sources_or_binaries": [],
-  "limitations": "This is a dependency inventory, not a complete binary SBOM of OpenSSL/Rust internals inside optional third-party wheels. Packages are installed separately, never bundled. CI platform matrix has not yet run remotely."
+  "limitations": "Source runtime dependencies are installed separately. Windows ZIP bundles the measured runtime, backend, bootloader and hooks with notices and file hashes. This is not an exact or standards-complete upstream-wheel binary SBOM. Runtime/hardware game loading remains unverified.",
+  "windows_release": {
+    "verified_on": "2026-10-09",
+    "python": "3.14.4",
+    "python_source": "https://www.python.org/downloads/release/python-3144/",
+    "tk": "8.6.15",
+    "stdlib_openssl": "3.0.19",
+    "cryptography_openssl": "4.0.3",
+    "build_inputs": [
+      {
+        "name": "altgraph",
+        "version": "0.17.5",
+        "filename": "altgraph-0.17.5-py2.py3-none-any.whl",
+        "sha256": "f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597",
+        "url": "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl",
+        "license": null
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1",
+        "filename": "cffi-2.1.1-cp314-cp314-win_amd64.whl",
+        "sha256": "3222ba5d678f80a030e6afbcc33dc1ae5cb45facabb61cee2c7016b8432fde48",
+        "url": "https://files.pythonhosted.org/packages/a7/06/1c3e01e3ba14c39f6d10bfbac52753b7e22259e38088e5cfe1d704918690/cffi-2.1.1-cp314-cp314-win_amd64.whl",
+        "license": "MIT-0"
+      },
+      {
+        "name": "cryptography",
+        "version": "50.0.2",
+        "filename": "cryptography-50.0.2-cp311-abi3-win_amd64.whl",
+        "sha256": "7afa5a6602a9f29af1f3a2965f831bae7c9d5d597b7cbb716d41ab3b7d89879c",
+        "url": "https://files.pythonhosted.org/packages/9a/4f/adfc442765721292fff86d314ce385d3249d22db42295c0dd057727b60f3/cryptography-50.0.2-cp311-abi3-win_amd64.whl",
+        "license": "Apache-2.0 OR BSD-3-Clause"
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "filename": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+        "license": "Apache-2.0 OR BSD-2-Clause"
+      },
+      {
+        "name": "pefile",
+        "version": "2024.8.26",
+        "filename": "pefile-2024.8.26-py3-none-any.whl",
+        "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+        "url": "https://files.pythonhosted.org/packages/54/16/12b82f791c7f50ddec566873d5bdd245baa1491bac11d15ffb98aecc8f8b/pefile-2024.8.26-py3-none-any.whl",
+        "license": null
+      },
+      {
+        "name": "pycparser",
+        "version": "3.0",
+        "filename": "pycparser-3.0-py3-none-any.whl",
+        "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+        "url": "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl",
+        "license": "BSD-3-Clause"
+      },
+      {
+        "name": "pyinstaller",
+        "version": "6.22.3",
+        "filename": "pyinstaller-6.22.3-py3-none-win_amd64.whl",
+        "sha256": "500bd58c7bf7e584a8435adccbd763a0b918d5c12b08d74ff50fd79b2915458b",
+        "url": "https://files.pythonhosted.org/packages/24/83/c5422204772a27aef643280fdc887b7ef55679989096b21dceb1b9625fc4/pyinstaller-6.22.3-py3-none-win_amd64.whl",
+        "license": null
+      },
+      {
+        "name": "pyinstaller-hooks-contrib",
+        "version": "2026.8",
+        "filename": "pyinstaller_hooks_contrib-2026.8-py3-none-any.whl",
+        "sha256": "6d21d65323ea4467753afc21f52d7d0e69416ae8101dd88269bf273ad48db084",
+        "url": "https://files.pythonhosted.org/packages/8f/f1/3eee0263b487e571aed9204257b45bc2a0b6fec34d0a1adade4d8d8a968c/pyinstaller_hooks_contrib-2026.8-py3-none-any.whl",
+        "license": null
+      },
+      {
+        "name": "pywin32-ctypes",
+        "version": "0.2.3",
+        "filename": "pywin32_ctypes-0.2.3-py3-none-any.whl",
+        "sha256": "8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8",
+        "url": "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl",
+        "license": null
+      },
+      {
+        "name": "setuptools",
+        "version": "84.0.0",
+        "filename": "setuptools-84.0.0-py3-none-any.whl",
+        "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+        "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+        "license": "MIT"
+      }
+    ],
+    "binary_notices": "THIRD_PARTY/manifest.json in portable ZIP; all 32 registry crates from Cargo.lock; conservative superset, not an exact compiled graph",
+    "authenticode_signed": false
+  }
 }

@@ -70,7 +70,33 @@ are preserved, and our parser requires the final mapped block. This is not a
 perfect metadata/size conformance certificate. stfschk reports CON signature
 **unknown (console signed)**; separate content-RSA checks are necessary.
 
-## Not verified
+## Windows GUI / EXE 0.2.0
+
+Local Windows checks on 2026-10-09:
+
+- 51 tests including private NGII integration; the original files remain unchanged.
+- Six GUI regression tests cover argument/signing boundaries, error reporting,
+  safe JSON reports, worker completion/failure, close guard, unsafe cancellation,
+  and actual Tk inspection/validation/bidirectional conversion.
+- Official CPython 3.14.4 builds the portable x64 executable; its Python DLL has
+  a valid Python Software Foundation signature. Our own EXE is not Authenticode signed.
+- The actual EXE is launched from a freshly extracted release ZIP and its Tk
+  window closes normally. Six successful frozen commands check inspection, content RSA,
+  both conversions and unsigned/key-backed/preserved-signature modes.
+- Frozen conversions preserve synthetic payload bytes, keep the original
+  unchanged, verify all backup ZIPs, and restore the exact original signed donor
+  in preservation mode. Generated signing material is synthetic, never retail.
+- A failed frozen command returns code 2 with its root cause on captured stderr;
+  optimized Python refuses the smoke gate rather than skipping assertions.
+- 75 dependency-notice files, a conservative 32-crate license inventory, and
+  recursive SHA-256 file inventory ship with the binary. Build inputs exclude
+  user samples and signing materials. Smoke receipts remain under `.local/windows/`.
+
+Source GUI tests exercise UI actions; frozen conversion tests use the same CLI
+boundary through the EXE's `--cli` entry. These are separate evidence and do not
+claim a manual click-through of every packaged widget or actual game loading.
+
+## Remaining runtime gaps
 
 No Xenia executable loaded these exports; pinned-source conformance and our
 rediscovery establish structure only. No retail Xbox 360 load/save cycle or
