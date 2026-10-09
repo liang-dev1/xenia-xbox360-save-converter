@@ -21,6 +21,29 @@ new content root; choose an account present in the receiving emulator. A changed
 donor cannot retain its old signature. Unsigned drafts are not retail-console
 saves, and key-backed signatures do not establish issuer trust or hardware load.
 
+## Batch conversion
+
+Inspect the input, enable **批量转换**, then use **全选**, **清空** or the
+multi-select list. Inspection initially selects all discovered packages. Choose
+a new output directory and click **开始**. Clearing the list does not mean
+"all"; select at least one package. Changing the input clears the old selection.
+
+Xbox output shares one same-title CON template and signing/identity settings.
+Each package is written under `Content/PROFILE/TITLE/00000001/PACKAGE`. Xenia
+output merges packages into one standard content root with metadata sidecars.
+Use a separate batch per game for Xbox output. Unique package names are required;
+when multiple accounts have the same name, choose a narrower source folder.
+
+Conversion errors are reported per item; successful items are retained. All-failed
+batches create no output directory. Staging/publishing I/O errors abort the batch;
+check any reported output path before retrying. Backups remain available. Reports
+include total/succeeded/failed and each item's integrity/provenance/signing status.
+"Batch complete" means every item converted, not retail signature trust or game
+compatibility. The current limit is 256 selected packages per batch. Each item repeats input discovery and backup
+verification; large roots can be slow. Narrow the input or split the batch.
+Discovery/preflight errors abort before per-item reports; even an unselected
+malformed neighbour can prevent discovery. Narrow to a valid input subtree.
+
 ## Rebuild the Windows release
 
 Build on Windows x64 using official CPython **3.14.4**, with Tcl/Tk 8.6.15 and
@@ -32,7 +55,7 @@ the new binary. Source/CLI support remains Python 3.11+.
 python -m venv .local/windows-venv
 .local/windows-venv/Scripts/python.exe -m pip install --require-hashes -r requirements-windows.txt
 .local/windows-venv/Scripts/python.exe tools/build_windows.py
-.local/windows-venv/Scripts/python.exe tools/windows_smoke.py .local/windows/0.2.0/xsave-windows-x64-0.2.0.zip --receipt .local/windows/0.2.0/smoke.json
+.local/windows-venv/Scripts/python.exe tools/windows_smoke.py .local/windows/0.3.0/xsave-windows-x64-0.3.0.zip --receipt .local/windows/0.3.0/smoke.json
 ```
 
 The builder refuses to overwrite an existing bundle or ZIP. Preserve or remove

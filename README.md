@@ -15,7 +15,7 @@ verification also does not prove certificate trust or that a game will load.
 
 ### Windows graphical version
 
-Download `xsave-windows-x64-0.2.0.zip` from
+Download `xsave-windows-x64-0.3.0.zip` from
 [Releases](https://github.com/liang-dev1/xenia-xbox360-save-converter/releases),
 extract the **whole ZIP**, then double-click **XSaveConverter.exe**. Keep
 `_internal` beside it. Python installation is not required. The EXE is unsigned
@@ -23,7 +23,8 @@ by Authenticode, so Windows may show an unknown-publisher warning.
 
 1. Select a file or Xenia content folder and click **识别存档** (inspect).
 2. Choose **Xbox 360 → Xenia** or **Xenia → Xbox 360**, a new output path,
-   and a package if inspection found several saves.
+   and a package if inspection found several saves. Enable **批量转换** to
+   select all or several packages. Batch output must be a new directory.
 3. For Xbox output, select a same-game native CON template and explicitly choose
    unchanged-signature preservation, unsigned draft, or your decrypted KeyVault.
 4. Click **开始** and read the summary and full JSON report. Account/layout hints
@@ -51,6 +52,32 @@ For tested optional versions, use `pip install -r requirements-signing.txt`.
 There is no SDK dependency, embedded console key, game data, cloud upload, or
 automatic application download. Build tools fetch audited dependency notices.
 You can also run `python -m xsave` from the source checkout.
+
+## Batch conversion
+
+```sh
+# All discovered packages → one new Xenia content root:
+python -m xsave to-xenia /path/to/native-saves --batch --output /path/to/new-content
+# Selected packages → a new Xbox Content tree (unsigned structural drafts):
+python -m xsave to-xbox /path/to/content --batch --package SAVE1 --package SAVE2 \
+  --template /path/to/same-game-CON --unsigned --output /path/to/new-xbox-tree
+```
+
+Omit `--package` with `--batch` to convert all. Xbox batches share a same-title
+CON template; signing/identity options apply to every selected package. Xbox
+output uses `Content/PROFILE/TITLE/00000001/PACKAGE`; Xenia output merges the
+standard content tree and Headers. Existing output roots are refused.
+
+Per-item conversion failures do not discard successful items. JSON lists each
+result and counts; partial/all-failed batches return exit code **2** while keeping
+the report. All-failed batches create no output root. Staging/publishing errors
+abort the batch. Inputs and templates are backed up through the individual
+converter. Duplicate package names across accounts require narrowing the input.
+The first batch implementation supports at most **256** selected packages. Each item repeats input discovery and backup
+verification; large content roots can be slow. Narrow the input or split the batch.
+Discovery/preflight errors abort before per-item reports; even an unselected
+malformed neighbour can prevent discovery. Narrow to a valid input subtree.
+Game-specific binding/checksum and signing restrictions still apply per item.
 
 ## Xbox 360 → Xenia
 
@@ -90,7 +117,7 @@ does not establish region or Title Update compatibility. The donor's Profile ID
 is the default receiving identity; `--profile-id` overrides it. `--source-xuid`
 supplies otherwise missing source identity and rejects conflicts with observed
 identity; `--title-id` supplies missing
-extracted-folder metadata. Multi-package inputs require `--package NAME`.
+extracted-folder metadata. Multi-package inputs require `--package NAME` or `--batch`.
 
 Signing accepts a caller-supplied **decrypted** 0x3FF0/0x4000 KeyVault and verifies
 that its RSA key matches its certificate. You are responsible for the authority

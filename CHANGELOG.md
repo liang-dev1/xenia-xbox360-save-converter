@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — experimental batch conversion
+
+- GUI all/multiple-package selection and CLI `--batch` with repeated `--package`.
+- Shared same-title CON template and standard Xbox Content output; merged Xenia
+  content output. Individual backup, identity, signing and validation remain shared.
+- Per-item reports, partial failure exit code 2, no output for all-failed batches,
+  and guards for ambiguous names, overlaps and input changes between items.
+- Synthetic batch regressions and seven private NGII package round trips.
+
+
 ## 0.2.0 — experimental Windows GUI
 
 - Native Tkinter interface for inspection, verification and both conversions,

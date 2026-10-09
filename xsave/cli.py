@@ -10,6 +10,7 @@ import sys
 import zipfile
 
 from .adapters import adapt
+from .batch import convert_batch
 from .converter import to_xbox, to_xenia
 from .errors import FormatError
 from .paths import is_link, read_file
@@ -58,7 +59,8 @@ def _parser() -> argparse.ArgumentParser:
     xbox.add_argument('input', type=Path)
     xbox.add_argument('--template', required=True, type=Path, help='same-title retail CON donor')
     xbox.add_argument('--output', required=True, type=Path)
-    xbox.add_argument('--package')
+    xbox.add_argument('--package', action='append')
+    xbox.add_argument('--batch', action='store_true', help='convert all or repeatedly selected packages into a new directory')
     xbox.add_argument('--title-id', type=_id8)
     xbox.add_argument('--source-xuid', type=_id16)
     xbox.add_argument('--profile-id', type=_bytes8)
@@ -74,7 +76,8 @@ def _parser() -> argparse.ArgumentParser:
     xenia.add_argument('--output', required=True, type=Path)
     xenia.add_argument('--xuid', type=_id16, help='target Xenia profile XUID')
     xenia.add_argument('--layout', choices=('canary', 'legacy'), default='canary')
-    xenia.add_argument('--package')
+    xenia.add_argument('--package', action='append')
+    xenia.add_argument('--batch', action='store_true', help='merge all or repeatedly selected packages into a new content root')
     xenia.add_argument('--title-id', type=_id8)
     xenia.add_argument('--source-xuid', type=_id16)
     xenia.add_argument('--allow-unsafe', action='store_true')
@@ -145,6 +148,11 @@ def _run(args: argparse.Namespace) -> dict:
     if args.command in ('inspect', 'verify'):
         return _inspect(args.input, args.title_id, args.source_xuid,
                         game_check=args.command == 'verify' and args.game_check)
+    if not args.batch and args.package and len(args.package) > 1:
+        raise FormatError('Use --batch for multiple --package values')
+    common = dict(title_id=args.title_id, source_xuid=args.source_xuid,
+                  allow_unsafe=args.allow_unsafe, backup_dir=args.backup_dir)
+    selection = args.package if args.batch else args.package[0] if args.package else None
     if args.command == 'to-xbox':
         signer = None
         if args.keyvault is not None:
@@ -153,14 +161,16 @@ def _run(args: argparse.Namespace) -> dict:
                 raise FormatError('Signing material must be outside the backed-up input tree')
             key = _read_file(args.keyvault)
             signer = ConSigner.from_keyvault(key)
-        return to_xbox(args.input, args.template, args.output, package=args.package,
-                       title_id=args.title_id, source_xuid=args.source_xuid,
-                       profile_id=args.profile_id, device_id=args.device_id,
-                       signer=signer, unsigned=args.unsigned, allow_unsafe=args.allow_unsafe,
-                       backup_dir=args.backup_dir)
+        options = dict(template=args.template, profile_id=args.profile_id, device_id=args.device_id,
+                       signer=signer, unsigned=args.unsigned, **common)
+        if args.batch:
+            return convert_batch(args.command, args.input, args.output, packages=selection, **options)
+        return to_xbox(args.input, output=args.output, package=selection, **options)
+    if args.batch:
+        return convert_batch(args.command, args.input, args.output, packages=selection,
+                             xuid=args.xuid, layout=args.layout, **common)
     return to_xenia(args.input, args.output, xuid=args.xuid, layout=args.layout,
-                    package=args.package, title_id=args.title_id, source_xuid=args.source_xuid,
-                    allow_unsafe=args.allow_unsafe, backup_dir=args.backup_dir)
+                    package=selection, **common)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -179,6 +189,9 @@ def main(argv: list[str] | None = None) -> int:
             with report_path.open('x', encoding='utf-8') as stream:
                 stream.write(encoded)
         sys.stdout.write(encoded)
+        if report.get('failed'):
+            sys.stderr.write(f"xsave: batch has {report['failed']} failed package(s); inspect the JSON report\n")
+            return 2
         return 0
     except (FormatError, OSError, zipfile.BadZipFile, UnicodeError) as exc:
         sys.stderr.write(f'xsave: {exc}\n')

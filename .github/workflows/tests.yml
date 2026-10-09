@@ -42,11 +42,11 @@ jobs:
       - run: .local/windows-venv/Scripts/python.exe -m pip install --require-hashes -r requirements-windows.txt
       - run: .local/windows-venv/Scripts/python.exe -m unittest tests.test_gui -v
       - run: .local/windows-venv/Scripts/python.exe tools/build_windows.py
-      - run: .local/windows-venv/Scripts/python.exe tools/windows_smoke.py .local/windows/0.2.0/xsave-windows-x64-0.2.0.zip --receipt .local/windows/0.2.0/smoke.json
+      - run: .local/windows-venv/Scripts/python.exe tools/windows_smoke.py .local/windows/0.3.0/xsave-windows-x64-0.3.0.zip --receipt .local/windows/0.3.0/smoke.json
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
           path: |
-            .local/windows/0.2.0/xsave-windows-x64-0.2.0.zip
-            .local/windows/0.2.0/smoke.json
+            .local/windows/0.3.0/xsave-windows-x64-0.3.0.zip
+            .local/windows/0.3.0/smoke.json
           if-no-files-found: error

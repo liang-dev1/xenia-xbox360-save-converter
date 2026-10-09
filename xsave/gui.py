@@ -25,7 +25,16 @@ def arguments(mode: str, values: dict) -> list[str]:
     if mode in CONVERSIONS:
         if not values.get('output', '').strip():
             raise FormatError('请指定尚不存在的输出路径。')
-        options += ['output', 'package']
+        options.append('output')
+        if values.get('batch'):
+            packages = values.get('packages', [])
+            if not packages:
+                raise FormatError('请先识别输入，再在“批量存档”页选择至少一份存档。')
+            argv.append('--batch')
+            for package in packages:
+                argv += ['--package', package]
+        else:
+            options.append('package')
         if values.get('allow_unsafe'):
             argv.append('--allow-unsafe')
         if values.get('target_identity', '').strip():
@@ -65,6 +74,12 @@ def run_command(argv: list[str]) -> dict:
         except SystemExit as exc:
             code = exc.code
     if code != 0:
+        try:
+            report = json.loads(output.getvalue())
+        except (json.JSONDecodeError, ValueError):
+            report = None
+        if isinstance(report, dict) and report.get('status') in ('batch_partial', 'batch_failed'):
+            return report
         reason = errors.getvalue().strip() or '操作失败，未获得验证报告。'
         if destination is not None and not existed and destination.exists():
             reason += '\n输出路径已产生，但操作未完整成功（例如报告写入失败）。请先验证输出；不要直接重试或覆盖。'
@@ -79,6 +94,26 @@ def summary(report: dict) -> str:
         'preserved_donor_signature': '已保留模板原签名；仍需实际加载测试。',
         'xenia_export_needs_runtime_test': '已导出 Xenia 内容树；模拟器实际加载尚未验证。',
     }
+    if report.get('status') in ('batch_complete', 'batch_partial', 'batch_failed'):
+        names = {'batch_complete': '批量完成', 'batch_partial': '批量部分完成', 'batch_failed': '批量失败'}
+        lines = [f"{names[report['status']]}：成功 {report.get('succeeded', 0)} / "
+                 f"失败 {report.get('failed', 0)} / 共 {report.get('total', 0)}"]
+        if report.get('output'):
+            lines.append(f"输出目录：{report['output']}")
+        for item in report.get('results', []):
+            name = f"{item.get('package', '')}   Title ID：{item.get('title_id', '')}"
+            if item.get('status') == 'success':
+                child = item.get('report') or {}
+                label = messages.get(child.get('status'), child.get('status', '已完成'))
+                lines.append(f"✓ {name}：{label}")
+                if child.get('output'):
+                    lines.append(f"   输出：{child['output']}")
+                for warning in child.get('warnings', []):
+                    lines.append(f'   注意：{warning}')
+            else:
+                lines.append(f"✗ {name}：{item.get('error', '原因未知')}")
+        lines += ['', '结构 / 内容签名验证不等于证书信任或真机可用。']
+        return '\n'.join(lines)
     lines = [messages.get(report.get('status'), '已完成识别 / 验证，结果如下。')]
     for item in report.get('packages', [report] if report.get('title_id') else []):
         lines += [f"存档：{item.get('package', '')}   Title ID：{item.get('title_id', '')}"]
@@ -113,7 +148,7 @@ class Application:
             'input', 'output', 'template', 'package', 'keyvault', 'title_id',
             'source_xuid', 'target_identity', 'device_id', 'report')}
         self.values.update(method=tk.StringVar(value='preserve'), layout=tk.StringVar(value='canary'),
-                           allow_unsafe=tk.BooleanVar(value=False))
+                           allow_unsafe=tk.BooleanVar(value=False), batch=tk.BooleanVar(value=False))
         self.controls, self.keyvault_controls, self.results = [], [], queue.Queue()
         self.busy, self.closed, self.report, self.error = False, False, None, ''
         root.title(f'Xenia ↔ Xbox 360 Save Converter · {__version__}')
@@ -142,12 +177,30 @@ class Application:
         form.grid(sticky='ew')
         form.columnconfigure(1, weight=1)
         self.entry(form, 0, '输入存档', 'input', None, ('选择文件', '选择文件夹'))
-        self.entry(form, 1, '新输出路径', 'output', CONVERSIONS, ('选择位置',))
-        self.entry(form, 2, '原生 CON 模板', 'template', {'to-xbox'}, ('选择文件',))
+        self.output_label = self.entry(form, 1, '新输出路径', 'output', CONVERSIONS, ('选择位置',))
+        self.template_label = self.entry(form, 2, '原生 CON 模板', 'template', {'to-xbox'}, ('选择文件',))
         ttk.Label(form, text='目标存档（多存档输入）').grid(row=3, column=0, sticky='w', padx=(0, 12))
         self.packages = ttk.Combobox(form, textvariable=self.values['package'], state='readonly')
         self.packages.grid(row=3, column=1, sticky='ew', pady=4)
         self.controls.append((self.packages, CONVERSIONS))
+        self.batch_switch = ttk.Checkbutton(basic, text='批量转换（从已识别的存档中选择）',
+                                            variable=self.values['batch'], command=self.apply_mode)
+        self.batch_switch.grid(sticky='w', pady=(4, 0))
+        self.controls.append((self.batch_switch, CONVERSIONS))
+        batch_tab = ttk.Frame(settings, padding=8)
+        batch_tab.columnconfigure(0, weight=1)
+        batch_tab.rowconfigure(1, weight=1)
+        settings.add(batch_tab, text='批量存档')
+        ttk.Label(batch_tab, text='先识别输入；默认全选。按 Ctrl / Shift 可选择部分存档。').grid(sticky='w')
+        self.batch_packages = tk.Listbox(batch_tab, selectmode='extended', exportselection=False, height=9)
+        self.batch_packages.grid(sticky='nsew', pady=(5, 0))
+        batch_actions = ttk.Frame(batch_tab)
+        batch_actions.grid(sticky='w', pady=6)
+        self.batch_buttons = []
+        for text, selection in (('全选', True), ('清空选择', False)):
+            button = ttk.Button(batch_actions, text=text, command=lambda all_=selection: self.select_batch(all_))
+            button.pack(side='left', padx=(0, 8))
+            self.batch_buttons.append(button)
         self.signing = ttk.LabelFrame(basic, text='Xbox 360 输出签名方式', padding=8)
         self.signing.grid(sticky='ew', pady=8)
         self.signing.columnconfigure(1, weight=1)
@@ -224,7 +277,8 @@ class Application:
             value = filedialog.askdirectory(parent=self.root, title='选择 Xenia 存档 / 内容文件夹')
         elif choice == '选择位置':
             initial = 'report.json' if name == 'report' else (
-                'Xenia-content' if self.mode.get() == 'to-xenia' else self.values['package'].get() or 'converted-save')
+                'Xenia-content' if self.mode.get() == 'to-xenia' else
+                'Xbox-content' if self.values['batch'].get() else self.values['package'].get() or 'converted-save')
             value = filedialog.asksaveasfilename(parent=self.root, title='指定尚不存在的新输出路径',
                                                 initialfile=initial, confirmoverwrite=False)
         else:
@@ -235,14 +289,28 @@ class Application:
     def input_changed(self, *_):
         self.values['package'].set('')
         self.packages.configure(values=())
+        self.batch_packages.delete(0, 'end')
+
+    def select_batch(self, all_):
+        self.batch_packages.selection_clear(0, 'end')
+        if all_:
+            self.batch_packages.selection_set(0, 'end')
 
     def apply_mode(self):
         mode = self.mode.get()
+        batch = mode in CONVERSIONS and self.values['batch'].get()
         for widget, modes in self.controls:
             enabled = not self.busy and (modes is None or mode in modes)
             if widget in self.keyvault_controls:
                 enabled = enabled and self.values['method'].get() == 'keyvault'
+            if widget is self.packages:
+                enabled = enabled and not batch
             widget.configure(state=('readonly' if isinstance(widget, self.ttk.Combobox) else 'normal') if enabled else 'disabled')
+        self.batch_packages.configure(state='normal' if batch and not self.busy else 'disabled')
+        for widget in self.batch_buttons:
+            widget.configure(state='normal' if batch and not self.busy else 'disabled')
+        self.output_label.configure(text='新输出目录' if batch else '新输出路径')
+        self.template_label.configure(text='原生 CON 模板（整批共用）' if batch else '原生 CON 模板')
         if mode == 'to-xbox':
             self.signing.grid()
         else:
@@ -255,6 +323,8 @@ class Application:
         if self.busy:
             return
         values = {name: variable.get() for name, variable in self.values.items()}
+        if values['batch'] and self.mode.get() in CONVERSIONS:
+            values['packages'] = [self.batch_packages.get(index) for index in self.batch_packages.curselection()]
         try:
             argv = arguments(self.mode.get(), values)
         except FormatError as exc:
@@ -284,7 +354,10 @@ class Application:
             self.busy = False
             self.progress.stop()
             self.apply_mode()
-            self.status.configure(text='操作失败，请查看结果。' if self.error else '处理完成；请查看验证结果与限制。')
+            outcome = self.report.get('status') if self.report else ''
+            self.status.configure(text='操作失败，请查看结果。' if self.error or outcome == 'batch_failed' else
+                                  '批量部分完成；请查看失败项。' if outcome == 'batch_partial' else
+                                  '处理完成；请查看验证结果与限制。')
             contents = (self.error, self.error) if self.error else (summary(self.report), json.dumps(self.report, ensure_ascii=False, indent=2))
             for text, content in zip(self.texts, contents):
                 text.configure(state='normal')
@@ -295,6 +368,12 @@ class Application:
                 names = tuple(item['package'] for item in self.report['packages'])
                 self.packages.configure(values=names)
                 self.values['package'].set(names[0] if len(names) == 1 else '')
+                self.batch_packages.configure(state='normal')
+                self.batch_packages.delete(0, 'end')
+                for name in names:
+                    self.batch_packages.insert('end', name)
+                self.select_batch(True)
+                self.apply_mode()
         if not self.closed:
             self.poll_id = self.root.after(75, self.poll)
 

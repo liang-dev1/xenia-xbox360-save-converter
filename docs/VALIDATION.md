@@ -96,6 +96,26 @@ Source GUI tests exercise UI actions; frozen conversion tests use the same CLI
 boundary through the EXE's `--cli` entry. These are separate evidence and do not
 claim a manual click-through of every packaged widget or actual game loading.
 
+## Batch GUI / EXE 0.3.0
+
+Local Windows checks on 2026-10-09:
+
+- 62 tests pass, including eight batch safety/round-trip regressions, eight GUI
+  regressions and the opt-in private integration tests.
+- Seven NGII packages use one verified same-title CON template, then convert back
+  into one Xenia content root. All seven original payloads are restored exactly
+  after the adapter's explicit system XUID reversal; 66 source files are unchanged.
+- Batch output metadata, file trees, STFS hash trees and backup ZIP CRCs pass.
+  Those NGII Xbox outputs are deliberately unsigned drafts, not retail saves.
+- The extracted Windows EXE starts/closes its real Tk window and passes single
+  conversions plus a two-package key-backed batch round trip using synthetic
+  credentials. Partial/all-failed batches return code 2 and retain JSON reports;
+  all-failed batches create no output root.
+- Source tests exercise selection, legacy export, ambiguous names, wrong titles,
+  overlaps, input changes between items and staging failure without publication.
+- Release source audit includes 51 allowed files; private inputs, keys, outputs
+  and receipts remain excluded. No new runtime/build dependency was added.
+
 ## Remaining runtime gaps
 
 No Xenia executable loaded these exports; pinned-source conformance and our

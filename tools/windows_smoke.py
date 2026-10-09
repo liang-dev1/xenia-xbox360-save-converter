@@ -63,6 +63,7 @@ def main():
     from tests.helpers import donor
     from xsave.signing import ConSigner
     from xsave.stfs import StfsPackage, build
+    from xsave.xenia import XeniaSave, discover, write_save
     with tempfile.TemporaryDirectory(dir=ROOT / '.local' / 'tmp', prefix='frozen-') as temp:
         base = Path(temp)
         with zipfile.ZipFile(args.archive) as archive:
@@ -98,13 +99,16 @@ def main():
         original = source.read_bytes()
         reports = {}
 
-        def run(name, arguments):
+        def run(name, arguments, exit_code=0):
             path = base / f'{name}.json'
             completed = subprocess.run([str(exe), '--cli', *map(str, arguments),
-                                        '--report', str(path)], cwd=base, timeout=30)
-            if completed.returncode != 0:
-                raise RuntimeError(f'Frozen {name} failed: {completed.returncode}')
+                                        '--report', str(path)], cwd=base, capture_output=True, timeout=30)
+            if completed.returncode != exit_code:
+                raise RuntimeError(f'Frozen {name} exited {completed.returncode}, expected {exit_code}: '
+                                   f'{completed.stderr.decode(errors="replace")}')
             reports[name] = json.loads(path.read_text(encoding='utf-8'))
+            if exit_code == 2:
+                assert b'xsave:' in completed.stderr
             return reports[name]
 
         run('inspect', ['inspect', source])
@@ -118,6 +122,42 @@ def main():
             assert report['container']['signature'] == ('missing' if name == 'unsigned' else 'valid')
         assert (base / 'preserved').read_bytes() == original
         assert source.read_bytes() == original
+        batch_source = base / 'batch-source'
+        expected = {'save_a': {'replay': b'Batch A\x00\xff'},
+                    'save_b': {'nested/replay': b'Batch B\x00\xfe'}}
+        for name, files in expected.items():
+            write_save(XeniaSave(0x544307D5, 1, 0, name, name, files, {'nested'} if name == 'save_b' else set()),
+                       batch_source)
+        batch_original = {path: path.read_bytes() for path in batch_source.rglob('*') if path.is_file()}
+        xbox_batch = run('batch-to-xbox', ['to-xbox', batch_source, '--batch', '--template', source,
+                                           '--keyvault', key_path, '--output', base / 'batch-xbox'])
+        assert (xbox_batch['total'], xbox_batch['succeeded'], xbox_batch['failed']) == (2, 2, 0)
+        for row in xbox_batch['results']:
+            package = StfsPackage(Path(row['report']['output']).read_bytes())
+            assert package.files == expected[row['package']]
+            assert row['report']['container']['hash_tree'] == 'valid'
+            assert row['report']['container']['signature'] == 'valid'
+        xenia_batch = run('batch-to-xenia', ['to-xenia', base / 'batch-xbox', '--batch',
+                                             '--output', base / 'batch-xenia'])
+        assert (xenia_batch['total'], xenia_batch['succeeded'], xenia_batch['failed']) == (2, 2, 0)
+        assert {save.package_name: save.files for save in discover(base / 'batch-xenia')} == expected
+        assert batch_original == {path: path.read_bytes() for path in batch_original}
+        partial_source = base / 'partial-source'
+        for name, xuid in (('good', 0), ('blocked', 1)):
+            write_save(XeniaSave(0x544307D5, 1, xuid, name, name, {'replay': name.encode()}, set()),
+                       partial_source)
+        partial = run('batch-partial', ['to-xbox', partial_source, '--batch', '--template', source,
+                                        '--unsigned', '--output', base / 'batch-partial-output'], exit_code=2)
+        assert (partial['status'], partial['succeeded'], partial['failed']) == ('batch_partial', 1, 1)
+        assert {row['package']: row['status'] for row in partial['results']} == {
+            'good': 'success', 'blocked': 'failed'}
+        assert StfsPackage(Path(next(row for row in partial['results'] if row['package'] == 'good')
+                                ['report']['output']).read_bytes()).files == {'replay': b'good'}
+        all_failed = run('batch-all-failed', ['to-xbox', partial_source, '--batch', '--package', 'blocked',
+                                               '--template', source, '--unsigned', '--output', base / 'batch-no-output'],
+                         exit_code=2)
+        assert (all_failed['status'], all_failed['succeeded'], all_failed['failed']) == ('batch_failed', 0, 1)
+        assert all_failed['output'] is None and not (base / 'batch-no-output').exists()
         failed = subprocess.run([str(exe), '--cli', 'inspect', str(base / 'missing'),
                                  '--report', str(base / 'error.json')], cwd=base,
                                 capture_output=True, timeout=30)
@@ -126,14 +166,20 @@ def main():
         for name in ('to-xenia', 'unsigned', 'signed', 'preserved'):
             with zipfile.ZipFile(reports[name]['backup']) as backup:
                 assert backup.testzip() is None
+        for name in ('batch-to-xbox', 'batch-to-xenia', 'batch-partial'):
+            for row in reports[name]['results']:
+                if row['status'] == 'success':
+                    with zipfile.ZipFile(row['report']['backup']) as backup:
+                        assert backup.testzip() is None
         report = {'archive_sha256': hashlib.sha256(args.archive.read_bytes()).hexdigest(),
                   'frozen_tk_startup_and_close': 'passed', 'reports': reports,
                   'frozen_failure_stderr': 'passed',
+                  'batch_round_trip_and_failure_reports': 'passed',
                   'round_trip_file_equality': True, 'original_unchanged': True,
                   'synthetic_signing_only': True, 'runtime_or_console_game_load': 'not_tested'}
     args.receipt.parent.mkdir(parents=True, exist_ok=True)
     args.receipt.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
-    print('Frozen EXE: Tk startup, inspect, verify, both directions, all three signing modes passed.')
+    print('Frozen EXE: Tk startup, single and batch conversions, signing and failure reports passed.')
 
 
 if __name__ == '__main__':

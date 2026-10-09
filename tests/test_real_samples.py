@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 import unittest
 from importlib.util import find_spec
+import tempfile
+import zipfile
 
 from xsave.adapters import adapt
 from xsave.converter import to_xbox, to_xenia
@@ -18,6 +20,88 @@ from xsave.xenia import discover
 
 @unittest.skipUnless(os.environ.get('XSAVE_SAMPLE_ROOT'), 'private samples supplied locally only')
 class RealSampleTests(unittest.TestCase):
+    def test_ngii_real_batch_round_trip(self):
+        if not find_spec('cryptography'):
+            self.skipTest('cryptography required to verify the native donor signature')
+        from xsave.batch import convert_batch
+
+        source = Path(os.environ['XSAVE_SAMPLE_ROOT']).absolute()
+        project = Path(__file__).resolve().parents[1]
+        runs = project / '.local' / 'ngii-batch'
+        runs.mkdir(parents=True, exist_ok=True)
+        run = Path(tempfile.mkdtemp(prefix='run-', dir=runs))
+        originals = [p for tree in ('simu', '360original')
+                     for p in (source / tree).rglob('*') if p.is_file()]
+        before = {p: sha256(p.read_bytes()).hexdigest() for p in originals}
+        saves = discover(source / 'simu')
+        self.assertEqual(len(saves), 7)
+        self.assertEqual({save.title_id for save in saves}, {0x544307D5})
+        self.assertEqual({save.content_type for save in saves}, {1})
+        self.assertEqual(len({save.package_name.casefold() for save in saves}), 7)
+
+        donor = None
+        for path in sorted((source / '360original').rglob('*')):
+            if not path.is_file() or path.read_bytes()[:4] != b'CON ':
+                continue
+            package = StfsPackage(path.read_bytes())
+            if (package.metadata.title_id == 0x544307D5
+                    and package.metadata.content_type == 1
+                    and package.validate()['signature'] == 'valid'):
+                donor = path
+                break
+        self.assertIsNotNone(donor, 'No signed same-title CON Saved Game donor')
+        profile = StfsPackage(donor.read_bytes()).metadata.profile_id
+        xbox_root = run / 'xbox'
+        xbox = convert_batch('to-xbox', source / 'simu', xbox_root,
+                             template=donor, unsigned=True)
+        self.assertEqual((xbox['status'], xbox['total'], xbox['succeeded'], xbox['failed']),
+                         ('batch_complete', 7, 7, 0))
+        self.assertEqual(len(xbox['results']), 7)
+        for row in xbox['results']:
+            report = row['report']
+            original = next(save for save in saves if save.package_name == report['package'])
+            output = (xbox_root / 'Content' / profile.hex().upper()
+                      / '544307D5' / '00000001' / original.package_name)
+            self.assertEqual(Path(report['output']), output)
+            self.assertEqual(report['status'], 'unsigned_draft')
+            converted = StfsPackage(output.read_bytes())
+            expected = adapt(original.title_id, original.files, original.xuid,
+                             int.from_bytes(profile, 'big')).files
+            self.assertEqual(converted.files, expected)
+            self.assertEqual(converted.metadata.title_id, 0x544307D5)
+            self.assertEqual(converted.validate()['signature'], 'missing')
+            self.assertTrue(converted.validate()['structural_valid'])
+            with zipfile.ZipFile(report['backup']) as snapshot:
+                self.assertIsNone(snapshot.testzip())
+
+        system = next(save for save in saves if 'ng2sysd.dat' in save.files)
+        original_system_xuid = int.from_bytes(system.files['ng2sysd.dat'][:8], 'big')
+        xenia_root = run / 'xenia'
+        exported = convert_batch('to-xenia', xbox_root, xenia_root,
+                                 xuid=original_system_xuid)
+        self.assertEqual((exported['status'], exported['total'],
+                          exported['succeeded'], exported['failed']),
+                         ('batch_complete', 7, 7, 0))
+        self.assertEqual(len(exported['results']), 7)
+        returned = {save.package_name: save for save in discover(xenia_root)}
+        self.assertEqual(set(returned), {save.package_name for save in saves})
+        for original in saves:
+            result = returned[original.package_name]
+            self.assertEqual(result.title_id, original.title_id)
+            self.assertEqual(result.xuid, original_system_xuid)
+            self.assertEqual(result.files, original.files)
+        for row in exported['results']:
+            with zipfile.ZipFile(row['report']['backup']) as snapshot:
+                self.assertIsNone(snapshot.testzip())
+        after = {p: sha256(p.read_bytes()).hexdigest() for p in originals}
+        self.assertEqual(before, after)
+        evidence = {'run': str(run), 'original_files_unchanged': len(originals),
+                    'packages_round_tripped': len(saves),
+                    'native_donor_sha256': before[donor],
+                    'xbox_status': xbox['status'], 'xenia_status': exported['status'],
+                    'retail_console_test': 'not_tested', 'xenia_runtime_test': 'not_tested'}
+        (runs / 'ngii-batch-latest.json').write_text(json.dumps(evidence, indent=2), encoding='utf-8')
+
     def test_ngii_real_bidirectional(self):
         if not find_spec('cryptography'):
             self.skipTest('cryptography required to assert native content RSA signatures')

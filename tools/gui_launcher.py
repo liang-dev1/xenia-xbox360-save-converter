@@ -32,7 +32,9 @@ if __name__ == '__main__':
         if '--report' not in sys.argv[2:]:
             raise SystemExit(failure('--cli requires a new --report path.'))
         try:
-            run_command(sys.argv[2:])
+            report = run_command(sys.argv[2:])
+            if report.get('failed'):
+                raise SystemExit(failure(f"batch has {report['failed']} failed package(s); inspect the JSON report"))
         except (FormatError, OSError) as exc:
             raise SystemExit(failure(exc))
     else:

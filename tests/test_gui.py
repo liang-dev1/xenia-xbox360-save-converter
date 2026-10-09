@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -11,6 +12,7 @@ from tests.helpers import donor
 from xsave.errors import FormatError
 from xsave.stfs import build, StfsPackage
 from xsave.gui import Application, arguments, run_command, summary
+from xsave.xenia import XeniaSave, write_save
 
 
 class GuiTests(unittest.TestCase):
@@ -38,6 +40,36 @@ class GuiTests(unittest.TestCase):
         self.assertIn('零售', summary({'status': 'unsigned_draft'}))
         self.assertIn('真机', summary({'status': 'signed_needs_console_test'}))
         self.assertIn('未验证', summary({'status': 'xenia_export_needs_runtime_test'}))
+
+    def test_batch_arguments_and_partial_result_are_explicit(self):
+        values = {'input': 'source', 'output': 'new-directory', 'template': 'donor',
+                  'method': 'unsigned', 'batch': True, 'packages': ['first', 'second']}
+        argv = arguments('to-xbox', values)
+        self.assertIn('--batch', argv)
+        self.assertEqual([argv[i + 1] for i, value in enumerate(argv) if value == '--package'],
+                         ['first', 'second'])
+        self.assertIn('--unsigned', argv)
+        with self.assertRaises(FormatError):
+            arguments('to-xbox', values | {'packages': []})
+        single = arguments('to-xbox', values | {'batch': False, 'package': 'first'})
+        self.assertNotIn('--batch', single)
+        self.assertEqual(single[single.index('--package') + 1], 'first')
+        report = {'status': 'batch_partial', 'total': 2, 'succeeded': 1, 'failed': 1,
+                  'output': 'new-directory', 'results': [
+                      {'package': 'first', 'title_id': '12345678', 'status': 'success',
+                       'report': {'status': 'unsigned_draft', 'output': 'new-directory/first'}},
+                      {'package': 'second', 'title_id': '12345678', 'status': 'failed', 'error': 'identity conflict'}]}
+        def failed_batch(_):
+            print(json.dumps(report))
+            return 2
+
+        with patch('xsave.gui.cli_main', side_effect=failed_batch):
+            self.assertEqual(run_command(argv), report)
+        result = summary(report)
+        self.assertIn('成功 1', result)
+        self.assertIn('失败 1', result)
+        self.assertIn('identity conflict', result)
+        self.assertIn('无签名', result)
 
     def test_gui_runner_uses_cli_data_and_report_safety(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -145,5 +177,64 @@ class GuiTests(unittest.TestCase):
                     app.start()
                 self.assertFalse(app.busy)
                 self.assertFalse((base / 'cancelled').exists())
+        finally:
+            app.close()
+
+    def test_native_window_selects_two_batch_saves(self):
+        try:
+            import tkinter as tk
+        except ImportError as exc:
+            self.skipTest(f'Tk display unavailable: {exc}')
+        try:
+            root = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(f'Tk display unavailable: {exc}')
+        root.withdraw()
+        app = Application(root)
+        try:
+            with tempfile.TemporaryDirectory() as temp:
+                base = Path(temp)
+                source, donor_path = base / 'source', base / 'donor'
+                donor_path.write_bytes(build({'old': b'donor'}, donor()))
+                for name in ('first', 'second'):
+                    write_save(XeniaSave(0x544307D5, 1, 0, name, name,
+                                         {'progress': name.encode()}, set()), source)
+                app.values['input'].set(str(source))
+                app.start()
+                deadline = time.monotonic() + 15
+                while app.busy and time.monotonic() < deadline:
+                    root.update()
+                    time.sleep(0.01)
+                self.assertEqual(app.error, '')
+                self.assertEqual(app.batch_packages.size(), 2)
+                self.assertEqual(app.batch_packages.curselection(), (0, 1))
+                app.mode.set('to-xbox')
+                app.values['batch'].set(True)
+                app.values['template'].set(str(donor_path))
+                app.values['method'].set('unsigned')
+                app.values['output'].set(str(base / 'out'))
+                app.apply_mode()
+                app.start()
+                deadline = time.monotonic() + 15
+                while app.busy and time.monotonic() < deadline:
+                    root.update()
+                    time.sleep(0.01)
+                self.assertEqual(app.error, '')
+                self.assertEqual(app.report['status'], 'batch_complete')
+                self.assertEqual(app.report['succeeded'], 2)
+                self.assertEqual({row['package'] for row in app.report['results']}, {'first', 'second'})
+                self.assertIn('成功 2', app.texts[0].get('1.0', 'end'))
+                app.batch_packages.selection_clear(1)
+                app.values['output'].set(str(base / 'subset'))
+                app.start()
+                deadline = time.monotonic() + 15
+                while app.busy and time.monotonic() < deadline:
+                    root.update()
+                    time.sleep(0.01)
+                self.assertEqual(app.error, '')
+                self.assertEqual([row['package'] for row in app.report['results']], ['first'])
+                self.assertFalse(any(p.name == 'second' for p in (base / 'subset').rglob('*')))
+                app.values['input'].set(str(donor_path))
+                self.assertEqual(app.batch_packages.size(), 0)
         finally:
             app.close()

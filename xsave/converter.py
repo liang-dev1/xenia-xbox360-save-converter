@@ -20,6 +20,16 @@ def _read(path):
     return read_file(Path(path))
 
 
+def _publish_tree(stage, output):
+    if os.name == 'nt':
+        stage.rename(output)
+    else:
+        # Exclusive creation prevents replacing an existing POSIX directory.
+        output.mkdir()
+        for child in stage.iterdir():
+            child.rename(output / child.name)
+
+
 def _destination(output, inputs):
     output = Path(output).absolute()
     if output.exists() or output.is_symlink():
@@ -195,14 +205,7 @@ def to_xenia(source, output, *, xuid=None, layout='canary', package=None,
         check = discover(stage)
         if len(check) != 1 or check[0].files != result.files or check[0].title_id != save.title_id:
             raise FormatError('Xenia output rediscovery/file verification failed')
-        if os.name == 'nt':
-            stage.rename(output)
-        else:
-            # ponytail: exclusive directory publishing; portable stdlib has no
-            # atomic rename-without-replacement for directories on POSIX.
-            output.mkdir()
-            for child in stage.iterdir():
-                child.rename(output / child.name)
+        _publish_tree(stage, output)
     report = _report(save, result, snapshot, output)
     report.update(status='xenia_export_needs_runtime_test', layout=layout,
                   xuid=f'{identity:016X}' if identity is not None else None,
